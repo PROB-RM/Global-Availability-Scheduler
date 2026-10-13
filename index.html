@@ -56,6 +56,11 @@
                         <i class="fa-solid fa-users"></i>
                         <span class="hidden md:inline">Members Directory</span>
                     </button>
+                    <!-- Admin Database Tab (Only visible when admin is unlocked) -->
+                    <button onclick="switchTab('admin-db')" id="nav-admin-db" class="hidden px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-all text-slate-600 hover:bg-slate-100 items-center space-x-2">
+                        <i class="fa-solid fa-database text-rose-600"></i>
+                        <span class="hidden md:inline">Cloud DB Setup</span>
+                    </button>
                 </nav>
 
                 <!-- Admin Lock / Toggle Button -->
@@ -74,7 +79,7 @@
             <div class="flex items-start space-x-3">
                 <i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5 text-lg"></i>
                 <div>
-                    <span class="font-semibold">Cloud Database Setup Notice:</span> Running in local simulation mode. To persist data across devices via GitHub Pages, configure your Firebase credentials in the code or use the panel below.
+                    <span class="font-semibold">Cloud Database Setup Notice:</span> Running in local simulation mode. To persist data across devices via GitHub Pages, configure your Firebase credentials below.
                 </div>
             </div>
             <button onclick="toggleConfigModal()" class="text-amber-900 font-medium underline text-xs whitespace-nowrap ml-4 mt-0.5 hover:text-amber-950">Configure Firebase</button>
@@ -91,7 +96,7 @@
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
                 <div class="max-w-3xl mb-8">
                     <h2 class="text-xl font-bold text-slate-900">Submit Your Free Slots</h2>
-                    <p class="text-sm text-slate-500 mt-1">Enter your details, select your home time zone, group number, and click or drag on the weekly grid to highlight when you are available.</p>
+                    <p class="text-sm text-slate-500 mt-1">Enter your details, select your home time zone, group number (1-10), and click or drag on the weekly grid to highlight when you are available.</p>
                 </div>
 
                 <form id="availability-form" onsubmit="handleFormSubmit(event)" class="space-y-6">
@@ -258,6 +263,73 @@
             </div>
         </div>
 
+        <!-- ================= TAB 4: ADMIN CLOUD DB SETUP & EDITOR ================= -->
+        <div id="tab-admin-db" class="space-y-6 hidden">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900 flex items-center space-x-2">
+                            <i class="fa-solid fa-database text-rose-600"></i>
+                            <span>Admin Cloud Database Management</span>
+                        </h2>
+                        <p class="text-sm text-slate-500 mt-1">Review active Firebase configuration, test connection status, and inspect or edit raw cloud records.</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="toggleConfigModal()" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl shadow-md transition-all flex items-center space-x-2">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                            <span>Edit Firebase Config</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Connection status card -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Connection Status</h3>
+                        <div id="admin-db-status" class="flex items-center space-x-3">
+                            <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                            <span class="font-semibold text-slate-800 text-sm">Checking Connection...</span>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Target Firestore Path</h3>
+                        <p class="font-mono text-xs text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200 truncate">
+                            /artifacts/<span id="admin-app-id-display"></span>/public/data/members
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Raw Cloud Records Table / Inspector -->
+                <div class="pt-4 border-t border-slate-200 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-slate-900 text-base">Raw Cloud Records Inspector</h3>
+                        <button onclick="loadMembersData()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors">
+                            <i class="fa-solid fa-rotate mr-1"></i> Refresh Inspector
+                        </button>
+                    </div>
+                    
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl bg-slate-50">
+                        <table class="w-full text-left text-xs text-slate-700">
+                            <thead class="bg-slate-200 text-slate-800 uppercase font-semibold">
+                                <tr>
+                                    <th class="p-3">Record ID</th>
+                                    <th class="p-3">Name</th>
+                                    <th class="p-3">College</th>
+                                    <th class="p-3">Group</th>
+                                    <th class="p-3">Timezone</th>
+                                    <th class="p-3">Slots Count</th>
+                                    <th class="p-3 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-db-tbody" class="divide-y divide-slate-200 bg-white">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <!-- Admin Passcode Modal -->
@@ -402,6 +474,7 @@
                     isFirebaseConnected = false;
                 }
             }
+            updateAdminDbStatusDisplay();
         }
 
         window.saveFirebaseConfig = function() {
@@ -431,8 +504,12 @@
         window.toggleConfigModal = function() {
             const modal = document.getElementById('config-modal');
             modal.classList.toggle('hidden');
-            if (!modal.classList.contains('hidden') && window.firebaseConfig) {
-                document.getElementById('firebase-config-input').value = JSON.stringify(window.firebaseConfig, null, 2);
+            if (!modal.classList.contains('hidden')) {
+                if (window.firebaseConfig) {
+                    document.getElementById('firebase-config-input').value = JSON.stringify(window.firebaseConfig, null, 2);
+                } else {
+                    document.getElementById('firebase-config-input').value = '';
+                }
             }
         };
 
@@ -441,9 +518,19 @@
                 // Lock admin mode
                 window.isAdminMode = false;
                 document.getElementById('admin-badge').classList.add('hidden');
+                document.getElementById('nav-admin-db').classList.add('hidden');
                 document.getElementById('admin-toggle-btn').className = 'p-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-100 text-xs font-medium transition-all flex items-center space-x-1.5';
                 document.getElementById('admin-lock-icon').className = 'fa-solid fa-lock';
                 document.getElementById('admin-btn-text').textContent = 'Admin';
+                
+                // If currently on admin tab, switch back to members
+                const submitTabHidden = document.getElementById('tab-submit').classList.contains('hidden');
+                const overlapTabHidden = document.getElementById('tab-overlap').classList.contains('hidden');
+                const membersTabHidden = document.getElementById('tab-members').classList.contains('hidden');
+                if (!document.getElementById('tab-admin-db').classList.contains('hidden')) {
+                    switchTab('members');
+                }
+
                 renderMembersList();
                 showToast("Admin mode locked.", "info");
             } else {
@@ -461,15 +548,39 @@
                 window.isAdminMode = true;
                 toggleAdminModal(); // Close modal
                 document.getElementById('admin-badge').classList.remove('hidden');
+                document.getElementById('nav-admin-db').classList.remove('hidden');
+                document.getElementById('nav-admin-db').classList.add('flex');
                 document.getElementById('admin-toggle-btn').className = 'p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium transition-all flex items-center space-x-1.5';
                 document.getElementById('admin-lock-icon').className = 'fa-solid fa-lock-open';
                 document.getElementById('admin-btn-text').textContent = 'Exit Admin';
+                
                 renderMembersList();
-                showToast("Admin mode unlocked successfully!", "success");
+                updateAdminDbStatusDisplay();
+                showToast("Admin mode unlocked successfully! Cloud DB tab is now available.", "success");
             } else {
                 showToast("Incorrect passcode. Please try again.", "error");
             }
         };
+
+        function updateAdminDbStatusDisplay() {
+            const statusEl = document.getElementById('admin-db-status');
+            const appIdEl = document.getElementById('admin-app-id-display');
+            if (appIdEl) appIdEl.textContent = window.appId;
+
+            if (statusEl) {
+                if (isFirebaseConnected) {
+                    statusEl.innerHTML = `
+                        <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span class="font-semibold text-emerald-800 text-sm">Connected to Live Cloud Firestore</span>
+                    `;
+                } else {
+                    statusEl.innerHTML = `
+                        <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                        <span class="font-semibold text-amber-800 text-sm">Local Simulation Mode (No cloud config saved)</span>
+                    `;
+                }
+            }
+        }
 
         window.promptDeleteMember = function(memberId, name) {
             if (!window.isAdminMode) {
@@ -624,6 +735,42 @@
                 `;
                 container.appendChild(card);
             });
+
+            renderAdminDbInspector();
+        }
+
+        function renderAdminDbInspector() {
+            const tbody = document.getElementById('admin-db-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            const members = window.membersCache || [];
+
+            if (members.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="p-4 text-center text-slate-400">No records found in cloud database.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            members.forEach(m => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition-colors';
+                tr.innerHTML = `
+                    <td class="p-3 font-mono text-[11px] text-slate-500">${m.id}</td>
+                    <td class="p-3 font-semibold text-slate-900">${escapeHTML(m.name)}</td>
+                    <td class="p-3">${escapeHTML(m.college)}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 bg-brand-50 text-brand-700 rounded font-semibold">${escapeHTML(m.group)}</span></td>
+                    <td class="p-3 truncate max-w-[140px]" title="${escapeHTML(m.timezone)}">${escapeHTML(m.timezone)}</td>
+                    <td class="p-3 font-semibold text-emerald-700">${m.slots ? m.slots.length : 0} slots</td>
+                    <td class="p-3 text-right space-x-1">
+                        <button onclick="editMember('${m.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="promptDeleteMember('${m.id}', '${escapeHTML(m.name)}')" class="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded text-[11px] font-medium"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
 
         window.handleFormSubmit = async function(e) {
@@ -694,7 +841,7 @@
             window.membersCache = members;
             renderMembersList();
             renderOverlapData();
-            showToast("Directory refreshed.", "info");
+            showToast("Directory refreshed from cloud database.", "info");
         };
 
         function populateTimezones() {
@@ -806,17 +953,31 @@
         };
 
         window.switchTab = function(tabName) {
-            ['submit', 'overlap', 'members'].forEach(t => {
-                document.getElementById(`tab-${t}`).classList.add('hidden');
-                document.getElementById(`nav-${t}`).className = 'px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-all text-slate-600 hover:bg-slate-100 flex items-center space-x-2';
+            const tabs = ['submit', 'overlap', 'members', 'admin-db'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (el) el.classList.add('hidden');
+                const navEl = document.getElementById(`nav-${t}`);
+                if (navEl) {
+                    navEl.className = 'px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-all text-slate-600 hover:bg-slate-100 flex items-center space-x-2';
+                }
             });
-            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-            document.getElementById(`nav-${tabName}`).className = 'px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-all bg-brand-50 text-brand-700 flex items-center space-x-2';
+
+            const targetTab = document.getElementById(`tab-${tabName}`);
+            if (targetTab) targetTab.classList.remove('hidden');
+
+            const targetNav = document.getElementById(`nav-${tabName}`);
+            if (targetNav) {
+                targetNav.className = 'px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-all bg-brand-50 text-brand-700 flex items-center space-x-2';
+            }
 
             if (tabName === 'overlap') {
                 renderOverlapData();
             } else if (tabName === 'members') {
                 loadMembersData();
+            } else if (tabName === 'admin-db') {
+                updateAdminDbStatusDisplay();
+                renderAdminDbInspector();
             }
         };
 
