@@ -392,7 +392,11 @@
                     auth = getAuth(app);
                     await signInAnonymously(auth);
                     isFirebaseConnected = true;
-                    document.getElementById('firebase-config-banner').classList.add('hidden');
+                    // Immediately hide banner upon successful connection
+                    const banner = document.getElementById('firebase-config-banner');
+                    if (banner) {
+                        banner.classList.add('hidden');
+                    }
                 } catch (err) {
                     console.error("Firebase init failed:", err);
                     isFirebaseConnected = false;
@@ -410,6 +414,13 @@
                 localStorage.setItem('gas_firebase_config', JSON.stringify(parsed));
                 window.firebaseConfig = parsed;
                 toggleConfigModal();
+                
+                // Immediately hide banner
+                const banner = document.getElementById('firebase-config-banner');
+                if (banner) {
+                    banner.classList.add('hidden');
+                }
+
                 showToast("Firebase config saved! Reloading connection...", "success");
                 setTimeout(() => window.location.reload(), 1000);
             } catch (err) {
