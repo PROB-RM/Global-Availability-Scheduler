@@ -1151,4 +1151,1157 @@
         }
     </script>
 </body>
+</html><!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Availability Scheduler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-full bg-slate-50 text-slate-800 font-sans antialiased flex flex-col min-h-screen">
+
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-brand-600 text-white p-2 rounded-xl shadow-md flex items-center justify-center">
+                    <i class="fa-solid fa-globe text-xl"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="font-bold text-lg text-slate-900 leading-tight">Global Sync</h1>
+                        <span id="admin-badge" class="hidden px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">Admin Mode</span>
+                    </div>
+                    <p class="text-xs text-slate-500">Cross-Timezone Team Scheduler</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <nav class="flex space-x-1 sm:space-x-2">
+                    <button onclick="switchTab('submit')" id="nav-submit" class="px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-all bg-brand-50 text-brand-700 flex items-center space-x-2">
+                        <i class="fa-solid fa-user-pen"></i>
+                        <span class="hidden md:inline">My Availability</span>
+                    </button>
+                    <button onclick="switchTab('overlap')" id="nav-overlap" class="px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-all text-slate-600 hover:bg-slate-100 flex items-center space-x-2">
+                        <i class="fa-solid fa-calendar-days"></i>
+                        <span class="hidden md:inline">Group Overlap</span>
+                    </button>
+                    <button onclick="switchTab('members')" id="nav-members" class="px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-all text-slate-600 hover:bg-slate-100 flex items-center space-x-2">
+                        <i class="fa-solid fa-users"></i>
+                        <span class="hidden md:inline">Members Directory</span>
+                    </button>
+                    <!-- Admin Database Tab (Only visible when admin is unlocked) -->
+                    <button onclick="switchTab('admin-db')" id="nav-admin-db" class="hidden px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-all text-slate-600 hover:bg-slate-100 items-center space-x-2">
+                        <i class="fa-solid fa-database text-rose-600"></i>
+                        <span class="hidden md:inline">Cloud DB Setup</span>
+                    </button>
+                </nav>
+
+                <!-- Admin Lock / Toggle Button -->
+                <button onclick="toggleAdminModal()" id="admin-toggle-btn" class="p-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-100 text-xs font-medium transition-all flex items-center space-x-1.5" title="Admin Mode">
+                    <i class="fa-solid fa-lock" id="admin-lock-icon"></i>
+                    <span class="hidden lg:inline" id="admin-btn-text">Admin</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        
+        <!-- Firebase Status Alert Banner -->
+        <div id="firebase-config-banner" class="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800 text-sm flex items-start justify-between shadow-sm">
+            <div class="flex items-start space-x-3">
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5 text-lg"></i>
+                <div>
+                    <span class="font-semibold">Cloud Database Setup Notice:</span> Running in local simulation mode. To persist data across devices via GitHub Pages, configure your Firebase credentials below.
+                </div>
+            </div>
+            <button onclick="toggleConfigModal()" class="text-amber-900 font-medium underline text-xs whitespace-nowrap ml-4 mt-0.5 hover:text-amber-950">Configure Firebase</button>
+        </div>
+
+        <!-- Notification Toast -->
+        <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 text-sm">
+            <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
+            <span id="toast-message">Action successful!</span>
+        </div>
+
+        <!-- ================= TAB 1: SUBMIT AVAILABILITY ================= -->
+        <div id="tab-submit" class="space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+                <div class="max-w-3xl mb-8">
+                    <h2 class="text-xl font-bold text-slate-900">Submit Your Free Slots</h2>
+                    <p class="text-sm text-slate-500 mt-1">Enter your details, select your home time zone, group number (1-10), and click or drag on the weekly grid to highlight when you are available.</p>
+                </div>
+
+                <form id="availability-form" onsubmit="handleFormSubmit(event)" class="space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Full Name</label>
+                            <input type="text" id="user-name" required placeholder="e.g. Alex Smith" onchange="checkForExistingMember(this.value)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-slate-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">College / Institution</label>
+                            <input type="text" id="user-college" required placeholder="e.g. Stanford University" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-slate-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Country / Region</label>
+                            <input type="text" id="user-country" required placeholder="e.g. United States" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-slate-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Group Number</label>
+                            <select id="user-group" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-slate-50">
+                                <option value="Group 1">Group 1</option>
+                                <option value="Group 2">Group 2</option>
+                                <option value="Group 3">Group 3</option>
+                                <option value="Group 4">Group 4</option>
+                                <option value="Group 5">Group 5</option>
+                                <option value="Group 6">Group 6</option>
+                                <option value="Group 7">Group 7</option>
+                                <option value="Group 8">Group 8</option>
+                                <option value="Group 9">Group 9</option>
+                                <option value="Group 10">Group 10</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Time Zone</label>
+                            <select id="user-timezone" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-slate-50">
+                                <!-- Populated dynamically -->
+                            </select>
+                            <p class="text-xs text-slate-500 mt-1">Times will be stored and normalized relative to UTC.</p>
+                        </div>
+                        <div class="flex items-end">
+                            <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 w-full flex items-center justify-between text-indigo-900 text-xs sm:text-sm">
+                                <span class="flex items-center space-x-2">
+                                    <i class="fa-solid fa-circle-info text-brand-600"></i>
+                                    <span>Tip: Click and drag across slots to quickly select.</span>
+                                </span>
+                                <button type="button" onclick="clearGridSelection()" class="text-brand-600 font-semibold hover:underline">Clear Grid</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Weekly Grid Container -->
+                    <div class="pt-4 border-t border-slate-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 class="font-bold text-slate-900 text-base">Weekly Availability Grid</h3>
+                                <p class="text-xs text-slate-500">Green = Free, Slate = Busy. Click or drag to toggle slots.</p>
+                            </div>
+                            <div class="flex items-center space-x-4 text-xs font-medium">
+                                <span class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded bg-emerald-500 inline-block"></span><span>Free Slot</span></span>
+                                <span class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded bg-slate-200 inline-block"></span><span>Busy Slot</span></span>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto border border-slate-200 rounded-2xl shadow-inner bg-slate-100 p-2 select-none" id="grid-wrapper">
+                            <div class="min-w-[700px] grid grid-cols-8 gap-1" id="calendar-grid">
+                                <!-- Generated by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end pt-4">
+                        <button type="submit" id="submit-btn" class="bg-brand-600 hover:bg-brand-700 text-white font-medium px-6 py-3 rounded-xl shadow-md transition-all flex items-center space-x-2">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span id="submit-btn-text">Save My Availability</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: GROUP OVERLAP ================= -->
+        <div id="tab-overlap" class="space-y-6 hidden">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Group Net Availability & Meeting Times</h2>
+                        <p class="text-sm text-slate-500 mt-1">Select a group and your target viewer time zone to find overlapping meeting times.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Select Group</label>
+                            <select id="filter-group" onchange="renderOverlapData()" class="px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50">
+                                <option value="Group 1">Group 1</option>
+                                <option value="Group 2">Group 2</option>
+                                <option value="Group 3">Group 3</option>
+                                <option value="Group 4">Group 4</option>
+                                <option value="Group 5">Group 5</option>
+                                <option value="Group 6">Group 6</option>
+                                <option value="Group 7">Group 7</option>
+                                <option value="Group 8">Group 8</option>
+                                <option value="Group 9">Group 9</option>
+                                <option value="Group 10">Group 10</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">View in Timezone</label>
+                            <select id="viewer-timezone" onchange="renderOverlapData()" class="px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Group Stats Summary -->
+                <div id="group-stats" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <!-- Best Meeting Suggestions -->
+                <div class="space-y-4">
+                    <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+                        <i class="fa-solid fa-medal text-amber-500"></i>
+                        <span>Best Recommended Meeting Slots</span>
+                    </h3>
+                    <div id="best-slots-container" class="space-y-3">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Comprehensive Heatmap View -->
+                <div class="mt-10 pt-8 border-t border-slate-200">
+                    <h3 class="font-bold text-slate-900 text-base mb-2">Group Overlap Heatmap</h3>
+                    <p class="text-xs text-slate-500 mb-4">Shows how many members are available at each day and hour in your selected timezone.</p>
+                    <div class="overflow-x-auto border border-slate-200 rounded-2xl shadow-inner bg-slate-100 p-2" id="heatmap-wrapper">
+                        <div class="min-w-[700px] grid grid-cols-8 gap-1" id="heatmap-grid">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 3: MEMBERS DIRECTORY ================= -->
+        <div id="tab-members" class="space-y-6 hidden">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Members Directory</h2>
+                        <p class="text-sm text-slate-500 mt-1">List of all members who have submitted their availability slots. Anyone can view entries, but only authorized admins can remove or edit incorrect entries.</p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button onclick="loadMembersData()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl transition-all flex items-center space-x-2">
+                            <i class="fa-solid fa-rotate"></i>
+                            <span>Refresh Data</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="members-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 4: ADMIN CLOUD DB SETUP & EDITOR ================= -->
+        <div id="tab-admin-db" class="space-y-6 hidden">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900 flex items-center space-x-2">
+                            <i class="fa-solid fa-database text-rose-600"></i>
+                            <span>Admin Cloud Database Management</span>
+                        </h2>
+                        <p class="text-sm text-slate-500 mt-1">Review active Firebase configuration, test connection status, and inspect or edit raw cloud records.</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="toggleConfigModal()" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl shadow-md transition-all flex items-center space-x-2">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                            <span>Edit Firebase Config</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Connection status card -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Connection Status</h3>
+                        <div id="admin-db-status" class="flex items-center space-x-3">
+                            <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                            <span class="font-semibold text-slate-800 text-sm">Checking Connection...</span>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Target Firestore Path</h3>
+                        <p class="font-mono text-xs text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200 truncate">
+                            /artifacts/<span id="admin-app-id-display"></span>/public/data/members
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Raw Cloud Records Table / Inspector -->
+                <div class="pt-4 border-t border-slate-200 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-slate-900 text-base">Raw Cloud Records Inspector</h3>
+                        <button onclick="loadMembersData()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors">
+                            <i class="fa-solid fa-rotate mr-1"></i> Refresh Inspector
+                        </button>
+                    </div>
+                    
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl bg-slate-50">
+                        <table class="w-full text-left text-xs text-slate-700">
+                            <thead class="bg-slate-200 text-slate-800 uppercase font-semibold">
+                                <tr>
+                                    <th class="p-3">Record ID</th>
+                                    <th class="p-3">Name</th>
+                                    <th class="p-3">College</th>
+                                    <th class="p-3">Group</th>
+                                    <th class="p-3">Timezone</th>
+                                    <th class="p-3">Slots Count</th>
+                                    <th class="p-3 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-db-tbody" class="divide-y divide-slate-200 bg-white">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Admin Passcode Modal -->
+    <div id="admin-modal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-brand-100 text-brand-600 p-2.5 rounded-xl">
+                        <i class="fa-solid fa-shield-halved text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-900">Admin Authentication</h3>
+                        <p class="text-xs text-slate-500">Enter passcode to unlock admin tools</p>
+                    </div>
+                </div>
+                <button onclick="toggleAdminModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Admin Passcode</label>
+                <input type="password" id="admin-passcode-input" placeholder="Enter admin passcode" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50">
+            </div>
+            <div class="flex justify-end space-x-3 pt-2">
+                <button onclick="toggleAdminModal()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button onclick="verifyAdminPasscode()" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-medium shadow-md">Unlock Admin</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div id="confirm-delete-modal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-rose-100 text-rose-600 p-2.5 rounded-xl">
+                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900">Delete Entry</h3>
+                    <p class="text-xs text-slate-500">Are you sure you want to remove <span id="delete-member-name" class="font-semibold text-slate-700"></span>?</p>
+                </div>
+            </div>
+            <p class="text-xs text-slate-500">This action will permanently remove their availability slots from the group sync.</p>
+            <div class="flex justify-end space-x-3 pt-2">
+                <button onclick="closeDeleteModal()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button id="confirm-delete-btn" onclick="executeDeleteMember()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-medium shadow-md">Delete Entry</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Config Modal -->
+    <div id="config-modal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="font-bold text-lg text-slate-900">Firebase Firestore Setup</h3>
+                <button onclick="toggleConfigModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <p class="text-xs text-slate-500">Paste your Firebase configuration JSON or snippet values below to enable live cloud syncing for your GitHub Pages deployment.</p>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Firebase Config JSON</label>
+                    <textarea id="firebase-config-input" rows="6" placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "your-app.firebaseapp.com",
+  "projectId": "your-app",
+  "storageBucket": "your-app.appspot.com",
+  "messagingSenderId": "...",
+  "appId": "..."
+}' class="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50"></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-2">
+                <button onclick="toggleConfigModal()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button onclick="saveFirebaseConfig()" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-medium shadow-md">Save & Connect</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global State
+        window.appId = typeof __app_id !== 'undefined' ? __app_id : 'global-availability-scheduler-v1';
+        window.firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        
+        let db = null;
+        let auth = null;
+        let isFirebaseConnected = false;
+        
+        let targetDeleteId = null;
+        let targetDeleteName = "";
+
+        // Admin state
+        window.isAdminMode = false;
+
+        // Local in-memory fallback database if Firebase config is missing
+        let localMembersData = JSON.parse(localStorage.getItem('gas_local_members') || '[]');
+        window.membersCache = localMembersData;
+
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        const hours = Array.from({ length: 24 }, (_, i) => i); // 0 to 23
+
+        // Grid state: Set of strings "dayIndex-hourIndex"
+        window.selectedSlots = new Set();
+        let isMouseDown = false;
+        let isSelectingState = true;
+
+        window.onload = async function() {
+            populateTimezones();
+            buildInteractiveGrid();
+            setupGridDragListeners();
+
+            // Check for saved Firebase config in localStorage
+            const savedConfig = localStorage.getItem('gas_firebase_config');
+            if (savedConfig) {
+                try {
+                    window.firebaseConfig = JSON.parse(savedConfig);
+                } catch(e) {}
+            }
+
+            await initFirebase();
+            loadMembersData();
+        };
+
+        async function initFirebase() {
+            if (window.firebaseConfig && window.firebaseConfig.apiKey) {
+                try {
+                    const app = initializeApp(window.firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    await signInAnonymously(auth);
+                    isFirebaseConnected = true;
+                    // Immediately hide banner upon successful connection
+                    const banner = document.getElementById('firebase-config-banner');
+                    if (banner) {
+                        banner.classList.add('hidden');
+                    }
+                } catch (err) {
+                    console.error("Firebase init failed:", err);
+                    isFirebaseConnected = false;
+                }
+            }
+            updateAdminDbStatusDisplay();
+        }
+
+        window.saveFirebaseConfig = function() {
+            const inputVal = document.getElementById('firebase-config-input').value.trim();
+            try {
+                const parsed = JSON.parse(inputVal);
+                if (!parsed.apiKey || !parsed.projectId) {
+                    throw new Error("Missing apiKey or projectId");
+                }
+                localStorage.setItem('gas_firebase_config', JSON.stringify(parsed));
+                window.firebaseConfig = parsed;
+                toggleConfigModal();
+                
+                // Immediately hide banner
+                const banner = document.getElementById('firebase-config-banner');
+                if (banner) {
+                    banner.classList.add('hidden');
+                }
+
+                showToast("Firebase config saved! Reloading connection...", "success");
+                setTimeout(() => window.location.reload(), 1000);
+            } catch (err) {
+                showToast("Invalid Firebase JSON config. Please check and retry.", "error");
+            }
+        };
+
+        window.toggleConfigModal = function() {
+            const modal = document.getElementById('config-modal');
+            modal.classList.toggle('hidden');
+            if (!modal.classList.contains('hidden')) {
+                if (window.firebaseConfig) {
+                    document.getElementById('firebase-config-input').value = JSON.stringify(window.firebaseConfig, null, 2);
+                } else {
+                    document.getElementById('firebase-config-input').value = '';
+                }
+            }
+        };
+
+        window.toggleAdminModal = function() {
+            if (window.isAdminMode) {
+                // Lock admin mode
+                window.isAdminMode = false;
+                document.getElementById('admin-badge').classList.add('hidden');
+                document.getElementById('nav-admin-db').classList.add('hidden');
+                document.getElementById('admin-toggle-btn').className = 'p-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-100 text-xs font-medium transition-all flex items-center space-x-1.5';
+                document.getElementById('admin-lock-icon').className = 'fa-solid fa-lock';
+                document.getElementById('admin-btn-text').textContent = 'Admin';
+                
+                // If currently on admin tab, switch back to members
+                const submitTabHidden = document.getElementById('tab-submit').classList.contains('hidden');
+                const overlapTabHidden = document.getElementById('tab-overlap').classList.contains('hidden');
+                const membersTabHidden = document.getElementById('tab-members').classList.contains('hidden');
+                if (!document.getElementById('tab-admin-db').classList.contains('hidden')) {
+                    switchTab('members');
+                }
+
+                renderMembersList();
+                showToast("Admin mode locked.", "info");
+            } else {
+                const modal = document.getElementById('admin-modal');
+                modal.classList.toggle('hidden');
+                document.getElementById('admin-passcode-input').value = '';
+            }
+        };
+
+        window.verifyAdminPasscode = function() {
+            const val = document.getElementById('admin-passcode-input').value;
+            // Configured secret admin passcode (default set to 'teamadmin2026')
+            const adminSecret = typeof window.ADMIN_SECRET !== 'undefined' ? window.ADMIN_SECRET : 'teamadmin2026';
+            if (val === adminSecret) {
+                window.isAdminMode = true;
+                toggleAdminModal(); // Close modal
+                document.getElementById('admin-badge').classList.remove('hidden');
+                document.getElementById('nav-admin-db').classList.remove('hidden');
+                document.getElementById('nav-admin-db').classList.add('flex');
+                document.getElementById('admin-toggle-btn').className = 'p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium transition-all flex items-center space-x-1.5';
+                document.getElementById('admin-lock-icon').className = 'fa-solid fa-lock-open';
+                document.getElementById('admin-btn-text').textContent = 'Exit Admin';
+                
+                renderMembersList();
+                updateAdminDbStatusDisplay();
+                showToast("Admin mode unlocked successfully! Cloud DB tab is now available.", "success");
+            } else {
+                showToast("Incorrect passcode. Please try again.", "error");
+            }
+        };
+
+        function updateAdminDbStatusDisplay() {
+            const statusEl = document.getElementById('admin-db-status');
+            const appIdEl = document.getElementById('admin-app-id-display');
+            if (appIdEl) appIdEl.textContent = window.appId;
+
+            if (statusEl) {
+                if (isFirebaseConnected) {
+                    statusEl.innerHTML = `
+                        <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span class="font-semibold text-emerald-800 text-sm">Connected to Live Cloud Firestore</span>
+                    `;
+                } else {
+                    statusEl.innerHTML = `
+                        <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                        <span class="font-semibold text-amber-800 text-sm">Local Simulation Mode (No cloud config saved)</span>
+                    `;
+                }
+            }
+        }
+
+        window.promptDeleteMember = function(memberId, name) {
+            if (!window.isAdminMode) {
+                showToast("Admin access required to delete entries.", "error");
+                return;
+            }
+            targetDeleteId = memberId;
+            targetDeleteName = name;
+            document.getElementById('delete-member-name').textContent = name;
+            document.getElementById('confirm-delete-modal').classList.remove('hidden');
+        };
+
+        window.closeDeleteModal = function() {
+            document.getElementById('confirm-delete-modal').classList.add('hidden');
+            targetDeleteId = null;
+            targetDeleteName = "";
+        };
+
+        window.executeDeleteMember = async function() {
+            if (!targetDeleteId || !window.isAdminMode) return;
+
+            const confirmBtn = document.getElementById('confirm-delete-btn');
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i><span>Deleting...</span>';
+
+            try {
+                if (isFirebaseConnected && db) {
+                    const docRef = doc(db, 'artifacts', window.appId, 'public', 'data', 'members', targetDeleteId);
+                    await deleteDoc(docRef);
+                } else {
+                    localMembersData = localMembersData.filter(m => m.id !== targetDeleteId);
+                    localStorage.setItem('gas_local_members', JSON.stringify(localMembersData));
+                }
+                await loadMembersData();
+                showToast(`Successfully deleted entry for ${targetDeleteName}.`, "success");
+            } catch (err) {
+                console.error("Delete error:", err);
+                showToast("Failed to delete entry. Check console.", "error");
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = 'Delete Entry';
+                closeDeleteModal();
+            }
+        };
+
+        window.checkForExistingMember = function(nameValue) {
+            const trimmed = nameValue.trim().toLowerCase();
+            if (!trimmed) return;
+
+            const existing = (window.membersCache || []).find(m => m.name.toLowerCase() === trimmed);
+            if (existing) {
+                document.getElementById('user-college').value = existing.college || '';
+                document.getElementById('user-country').value = existing.country || '';
+                document.getElementById('user-group').value = existing.group || 'Group 1';
+                if (existing.timezone) {
+                    document.getElementById('user-timezone').value = existing.timezone;
+                }
+
+                clearGridSelection();
+                if (existing.slots && Array.isArray(existing.slots)) {
+                    existing.slots.forEach(slotKey => {
+                        const [d, h] = slotKey.split('-').map(Number);
+                        toggleSlot(d, h, true);
+                    });
+                }
+
+                document.getElementById('submit-btn-text').textContent = 'Update My Availability';
+                showToast(`Loaded existing profile for "${existing.name}". Saving will update your slots.`, "info");
+            } else {
+                document.getElementById('submit-btn-text').textContent = 'Save My Availability';
+            }
+        };
+
+        window.editMember = function(memberId) {
+            if (!window.isAdminMode) {
+                showToast("Admin access required to edit other profiles.", "error");
+                return;
+            }
+            const member = (window.membersCache || []).find(m => m.id === memberId);
+            if (!member) return;
+
+            document.getElementById('user-name').value = member.name;
+            document.getElementById('user-college').value = member.college;
+            document.getElementById('user-country').value = member.country;
+            document.getElementById('user-group').value = member.group;
+            document.getElementById('user-timezone').value = member.timezone;
+
+            clearGridSelection();
+            if (member.slots) {
+                member.slots.forEach(slotKey => {
+                    const [d, h] = slotKey.split('-').map(Number);
+                    toggleSlot(d, h, true);
+                });
+            }
+
+            document.getElementById('submit-btn-text').textContent = 'Update Profile';
+            switchTab('submit');
+            showToast(`Editing profile for "${member.name}".`, "info");
+        };
+
+        function renderMembersList() {
+            const container = document.getElementById('members-list-container');
+            container.innerHTML = '';
+            const members = window.membersCache || [];
+
+            if (members.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full py-12 text-center text-slate-400">
+                        <i class="fa-solid fa-users-slash text-3xl mb-2"></i>
+                        <p class="text-sm">No members registered yet. Be the first to submit availability!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            members.forEach(m => {
+                const card = document.createElement('div');
+                card.className = 'border border-slate-200 rounded-2xl p-5 bg-slate-50 shadow-sm flex flex-col justify-between space-y-4 hover:border-slate-300 transition-all';
+                
+                let actionButtons = '';
+                if (window.isAdminMode) {
+                    actionButtons = `
+                        <div class="flex items-center space-x-1 mt-2 pt-3 border-t border-slate-200">
+                            <button onclick="editMember('${m.id}')" class="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center space-x-1">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                                <span>Edit</span>
+                            </button>
+                            <button onclick="promptDeleteMember('${m.id}', '${escapeHTML(m.name)}')" class="px-2.5 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-semibold rounded-lg transition-colors flex items-center space-x-1">
+                                <i class="fa-solid fa-trash-can"></i>
+                                <span>Remove</span>
+                            </button>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-base">${escapeHTML(m.name)}</h4>
+                                <p class="text-xs text-slate-500">${escapeHTML(m.college)}</p>
+                            </div>
+                            <span class="px-2.5 py-1 bg-brand-50 text-brand-700 text-xs font-semibold rounded-lg">${escapeHTML(m.group)}</span>
+                        </div>
+                        <div class="mt-4 space-y-1.5 text-xs text-slate-600">
+                            <div class="flex items-center space-x-2"><i class="fa-solid fa-globe text-slate-400 w-4"></i><span>${escapeHTML(m.country)}</span></div>
+                            <div class="flex items-center space-x-2"><i class="fa-solid fa-clock text-slate-400 w-4"></i><span class="truncate">${escapeHTML(m.timezone)}</span></div>
+                            <div class="flex items-center space-x-2"><i class="fa-solid fa-calendar-check text-emerald-600 w-4"></i><span class="font-semibold text-slate-700">${m.slots ? m.slots.length : 0} free slots submitted</span></div>
+                        </div>
+                    </div>
+                    ${actionButtons}
+                `;
+                container.appendChild(card);
+            });
+
+            renderAdminDbInspector();
+        }
+
+        function renderAdminDbInspector() {
+            const tbody = document.getElementById('admin-db-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            const members = window.membersCache || [];
+
+            if (members.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="p-4 text-center text-slate-400">No records found in cloud database.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            members.forEach(m => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition-colors';
+                tr.innerHTML = `
+                    <td class="p-3 font-mono text-[11px] text-slate-500">${m.id}</td>
+                    <td class="p-3 font-semibold text-slate-900">${escapeHTML(m.name)}</td>
+                    <td class="p-3">${escapeHTML(m.college)}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 bg-brand-50 text-brand-700 rounded font-semibold">${escapeHTML(m.group)}</span></td>
+                    <td class="p-3 truncate max-w-[140px]" title="${escapeHTML(m.timezone)}">${escapeHTML(m.timezone)}</td>
+                    <td class="p-3 font-semibold text-emerald-700">${m.slots ? m.slots.length : 0} slots</td>
+                    <td class="p-3 text-right space-x-1">
+                        <button onclick="editMember('${m.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="promptDeleteMember('${m.id}', '${escapeHTML(m.name)}')" class="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded text-[11px] font-medium"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.handleFormSubmit = async function(e) {
+            e.preventDefault();
+            const name = document.getElementById('user-name').value.trim();
+            const college = document.getElementById('user-college').value.trim();
+            const country = document.getElementById('user-country').value.trim();
+            const group = document.getElementById('user-group').value;
+            const timezone = document.getElementById('user-timezone').value;
+
+            if (window.selectedSlots.size === 0) {
+                showToast("Please select at least one available time slot on the grid.", "error");
+                return;
+            }
+
+            const memberData = {
+                name,
+                college,
+                country,
+                group,
+                timezone,
+                slots: Array.from(window.selectedSlots),
+                updatedAt: new Date().toISOString()
+            };
+
+            const memberId = 'mem_' + name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i><span>Saving...</span>';
+
+            try {
+                if (isFirebaseConnected && db) {
+                    const docRef = doc(db, 'artifacts', window.appId, 'public', 'data', 'members', memberId);
+                    await setDoc(docRef, memberData);
+                } else {
+                    localMembersData = localMembersData.filter(m => m.id !== memberId && m.name.toLowerCase() !== name.toLowerCase());
+                    localMembersData.push({ id: memberId, ...memberData });
+                    localStorage.setItem('gas_local_members', JSON.stringify(localMembersData));
+                }
+
+                showToast(`Successfully saved availability for ${name}!`, "success");
+                document.getElementById('filter-group').value = group;
+                switchTab('overlap');
+                await loadMembersData();
+            } catch (err) {
+                console.error("Save error:", err);
+                showToast("Failed to save data. Please check console.", "error");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i><span id="submit-btn-text">Save My Availability</span>';
+            }
+        };
+
+        window.loadMembersData = async function() {
+            let members = [];
+            if (isFirebaseConnected && db) {
+                try {
+                    const colRef = collection(db, 'artifacts', window.appId, 'public', 'data', 'members');
+                    const snap = await getDocs(colRef);
+                    snap.forEach(d => members.push({ id: d.id, ...d.data() }));
+                } catch(e) {
+                    members = localMembersData;
+                }
+            } else {
+                members = localMembersData;
+            }
+            window.membersCache = members;
+            renderMembersList();
+            renderOverlapData();
+            showToast("Directory refreshed from cloud database.", "info");
+        };
+
+        function populateTimezones() {
+            const timezones = Intl.supportedValuesOf('timeZone');
+            const userTzSelect = document.getElementById('user-timezone');
+            const viewerTzSelect = document.getElementById('viewer-timezone');
+            
+            const guessedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+            timezones.forEach(tz => {
+                const opt1 = document.createElement('option');
+                opt1.value = tz;
+                opt1.textContent = tz;
+                if (tz === guessedTz) opt1.selected = true;
+                userTzSelect.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = tz;
+                opt2.textContent = tz;
+                if (tz === guessedTz) opt2.selected = true;
+                viewerTzSelect.appendChild(opt2);
+            });
+        }
+
+        function buildInteractiveGrid() {
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+
+            const corner = document.createElement('div');
+            corner.className = 'p-2 text-xs font-bold text-slate-500 text-center bg-slate-200 rounded-lg flex items-center justify-center';
+            corner.textContent = 'UTC / Days';
+            grid.appendChild(corner);
+
+            days.forEach((day) => {
+                const dHeader = document.createElement('div');
+                dHeader.className = 'p-2 text-xs font-bold text-slate-700 text-center bg-slate-200 rounded-lg truncate';
+                dHeader.textContent = day.slice(0, 3);
+                grid.appendChild(dHeader);
+            });
+
+            hours.forEach(hour => {
+                const hLabel = document.createElement('div');
+                hLabel.className = 'p-1.5 text-xs font-semibold text-slate-600 text-right pr-3 bg-slate-200/60 rounded-lg flex items-center justify-end';
+                hLabel.textContent = `${hour.toString().padStart(2, '0')}:00`;
+                grid.appendChild(hLabel);
+
+                days.forEach((_, dIdx) => {
+                    const cell = document.createElement('div');
+                    cell.className = 'h-8 bg-white border border-slate-200 rounded-md cursor-pointer transition-colors hover:border-brand-500';
+                    cell.dataset.day = dIdx;
+                    cell.dataset.hour = hour;
+                    cell.id = `cell-${dIdx}-${hour}`;
+
+                    cell.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        isMouseDown = true;
+                        const key = `${dIdx}-${hour}`;
+                        isSelectingState = !window.selectedSlots.has(key);
+                        toggleSlot(dIdx, hour, isSelectingState);
+                    });
+
+                    cell.addEventListener('mouseenter', () => {
+                        if (isMouseDown) {
+                            toggleSlot(dIdx, hour, isSelectingState);
+                        }
+                    });
+
+                    grid.appendChild(cell);
+                });
+            });
+
+            window.addEventListener('mouseup', () => {
+                isMouseDown = false;
+            });
+        }
+
+        function toggleSlot(dayIdx, hour, makeFree) {
+            const key = `${dayIdx}-${hour}`;
+            const cell = document.getElementById(`cell-${dayIdx}-${hour}`);
+            if (!cell) return;
+
+            if (makeFree) {
+                window.selectedSlots.add(key);
+                cell.className = 'h-8 bg-emerald-500 border border-emerald-600 rounded-md cursor-pointer transition-colors shadow-sm';
+            } else {
+                window.selectedSlots.delete(key);
+                cell.className = 'h-8 bg-white border border-slate-200 rounded-md cursor-pointer transition-colors';
+            }
+        }
+
+        function setupGridDragListeners() {
+            const wrapper = document.getElementById('grid-wrapper');
+            wrapper.addEventListener('mouseleave', () => {
+                isMouseDown = false;
+            });
+        }
+
+        window.clearGridSelection = function() {
+            window.selectedSlots.clear();
+            days.forEach((_, dIdx) => {
+                hours.forEach(hour => {
+                    const cell = document.getElementById(`cell-${dIdx}-${hour}`);
+                    if (cell) {
+                        cell.className = 'h-8 bg-white border border-slate-200 rounded-md cursor-pointer transition-colors';
+                    }
+                });
+            });
+            showToast("Grid selection cleared.", "info");
+        };
+
+        window.switchTab = function(tabName) {
+            const tabs = ['submit', 'overlap', 'members', 'admin-db'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (el) el.classList.add('hidden');
+                const navEl = document.getElementById(`nav-${t}`);
+                if (navEl) {
+                    navEl.className = 'px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-all text-slate-600 hover:bg-slate-100 flex items-center space-x-2';
+                }
+            });
+
+            const targetTab = document.getElementById(`tab-${tabName}`);
+            if (targetTab) targetTab.classList.remove('hidden');
+
+            const targetNav = document.getElementById(`nav-${tabName}`);
+            if (targetNav) {
+                targetNav.className = 'px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-medium transition-all bg-brand-50 text-brand-700 flex items-center space-x-2';
+            }
+
+            if (tabName === 'overlap') {
+                renderOverlapData();
+            } else if (tabName === 'members') {
+                loadMembersData();
+            } else if (tabName === 'admin-db') {
+                updateAdminDbStatusDisplay();
+                renderAdminDbInspector();
+            }
+        };
+
+        window.renderOverlapData = function() {
+            const groupFilter = document.getElementById('filter-group').value;
+            const viewerTz = document.getElementById('viewer-timezone').value || Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const members = (window.membersCache || []).filter(m => m.group === groupFilter);
+
+            const statsContainer = document.getElementById('group-stats');
+            statsContainer.innerHTML = `
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center space-x-4">
+                    <div class="w-12 h-12 bg-indigo-50 text-brand-600 rounded-xl flex items-center justify-center text-xl shadow-sm"><i class="fa-solid fa-users"></i></div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-medium">Total Group Members</p>
+                        <h4 class="text-xl font-bold text-slate-900">${members.length}</h4>
+                    </div>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center space-x-4">
+                    <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl shadow-sm"><i class="fa-solid fa-calendar-star"></i></div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-medium">Selected Group</p>
+                        <h4 class="text-xl font-bold text-slate-900">${groupFilter}</h4>
+                    </div>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center space-x-4">
+                    <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl shadow-sm"><i class="fa-solid fa-clock"></i></div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-medium">Viewer Time Zone</p>
+                        <h4 class="text-xs font-bold text-slate-900 truncate max-w-[200px]" title="${viewerTz}">${viewerTz}</h4>
+                    </div>
+                </div>
+            `;
+
+            const slotCounts = {};
+            members.forEach(m => {
+                if (m.slots) {
+                    m.slots.forEach(slotKey => {
+                        if (!slotCounts[slotKey]) slotCounts[slotKey] = new Set();
+                        slotCounts[slotKey].add(m.name);
+                    });
+                }
+            });
+
+            const sortedSlots = Object.keys(slotCounts).map(slotKey => {
+                const [dIdx, hour] = slotKey.split('-').map(Number);
+                return {
+                    dayIdx: dIdx,
+                    hour: hour,
+                    slotKey,
+                    members: Array.from(slotCounts[slotKey]),
+                    count: slotCounts[slotKey].size
+                };
+            }).sort((a, b) => b.count - a.count);
+
+            const bestContainer = document.getElementById('best-slots-container');
+            bestContainer.innerHTML = '';
+
+            if (members.length === 0) {
+                bestContainer.innerHTML = `
+                    <div class="p-8 text-center bg-slate-50 border border-slate-200 rounded-2xl text-slate-400 text-sm">
+                        No members found in ${groupFilter}. Have your teammates submit their availability first!
+                    </div>
+                `;
+            } else if (sortedSlots.length === 0) {
+                bestContainer.innerHTML = `
+                    <div class="p-8 text-center bg-slate-50 border border-slate-200 rounded-2xl text-slate-400 text-sm">
+                        No overlapping free slots found for ${groupFilter} yet.
+                    </div>
+                `;
+            } else {
+                const topSlots = sortedSlots.slice(0, 5);
+                topSlots.forEach((slot, idx) => {
+                    const dayName = days[slot.dayIdx];
+                    const percentage = Math.round((slot.count / members.length) * 100);
+                    
+                    const card = document.createElement('div');
+                    card.className = 'bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm';
+                    card.innerHTML = `
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 rounded-xl bg-brand-100 text-brand-700 font-bold flex items-center justify-center text-sm">
+                                #${idx + 1}
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-sm sm:text-base">${dayName}, ${slot.hour.toString().padStart(2, '0')}:00 UTC</h4>
+                                <p class="text-xs text-slate-500 mt-0.5">Available members: <span class="font-semibold text-slate-700">${slot.members.join(', ')}</span></p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4 justify-between sm:justify-end">
+                            <div class="text-right">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${percentage === 100 ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-brand-800'}">
+                                    ${slot.count}/${members.length} Free (${percentage}%)
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                    bestContainer.appendChild(card);
+                });
+            }
+
+            renderHeatmapGrid(slotCounts, members.length);
+        };
+
+        function renderHeatmapGrid(slotCounts, totalMembers) {
+            const heatmap = document.getElementById('heatmap-grid');
+            heatmap.innerHTML = '';
+
+            const corner = document.createElement('div');
+            corner.className = 'p-2 text-xs font-bold text-slate-500 text-center bg-slate-200 rounded-lg flex items-center justify-center';
+            corner.textContent = 'UTC / Days';
+            heatmap.appendChild(corner);
+
+            days.forEach(day => {
+                const dHeader = document.createElement('div');
+                dHeader.className = 'p-2 text-xs font-bold text-slate-700 text-center bg-slate-200 rounded-lg truncate';
+                dHeader.textContent = day.slice(0, 3);
+                heatmap.appendChild(dHeader);
+            });
+
+            hours.forEach(hour => {
+                const hLabel = document.createElement('div');
+                hLabel.className = 'p-1.5 text-xs font-semibold text-slate-600 text-right pr-3 bg-slate-200/60 rounded-lg flex items-center justify-end';
+                hLabel.textContent = `${hour.toString().padStart(2, '0')}:00`;
+                heatmap.appendChild(hLabel);
+
+                days.forEach((_, dIdx) => {
+                    const key = `${dIdx}-${hour}`;
+                    const count = slotCounts[key] ? slotCounts[key].size : 0;
+                    
+                    const cell = document.createElement('div');
+                    let bgClass = 'bg-white border-slate-200 text-slate-400';
+                    if (totalMembers > 0 && count > 0) {
+                        const ratio = count / totalMembers;
+                        if (ratio === 1) bgClass = 'bg-emerald-500 border-emerald-600 text-white font-bold shadow-sm';
+                        else if (ratio >= 0.66) bgClass = 'bg-emerald-400 border-emerald-500 text-white font-bold';
+                        else if (ratio >= 0.33) bgClass = 'bg-emerald-200 border-emerald-300 text-slate-800';
+                        else bgClass = 'bg-emerald-100 border-emerald-200 text-slate-800';
+                    }
+
+                    cell.className = `h-8 border rounded-md flex items-center justify-center text-xs transition-colors ${bgClass}`;
+                    cell.textContent = count > 0 ? count : '';
+                    cell.title = `${days[dIdx]} ${hour}:00 UTC - ${count} members free`;
+                    heatmap.appendChild(cell);
+                });
+            });
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const messageEl = document.getElementById('toast-message');
+            const iconEl = document.getElementById('toast-icon');
+
+            messageEl.textContent = message;
+            if (type === 'error') {
+                iconEl.className = 'fa-solid fa-circle-exclamation text-rose-400';
+            } else if (type === 'info') {
+                iconEl.className = 'fa-solid fa-circle-info text-sky-400';
+            } else {
+                iconEl.className = 'fa-solid fa-circle-check text-emerald-400';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3500);
+        }
+
+        function escapeHTML(str) {
+            return (str || '').replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+    </script>
+</body>
 </html>
